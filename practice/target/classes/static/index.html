@@ -1,0 +1,304 @@
+<!DOCTYPE html>
+<html lang="tr">
+<head>
+    <meta charset="UTF-8">
+    <title>Etiket Listesi</title>
+    <style>
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            background-color: #eef1f5;
+            margin: 0;
+            padding: 40px 20px;
+            color: #333;
+        }
+
+        h2, h3 {
+            text-align: center;
+            color: #1a1a1a;
+            margin-bottom: 10px;
+        }
+
+        #labelList {
+            max-width: 900px;
+            margin: 0 auto;
+        }
+
+        .label-card {
+            background-color: #ffffff;
+            border-radius: 16px;
+            box-shadow: 0 4px 12px rgba(0, 0, 0, 0.08);
+            padding: 24px;
+            margin-bottom: 24px;
+            transition: transform 0.2s, box-shadow 0.2s;
+            border-left: 6px solid #1976d2;
+        }
+
+        .label-card:hover {
+            transform: scale(1.01);
+            box-shadow: 0 6px 16px rgba(0, 0, 0, 0.1);
+        }
+
+        .label-card p {
+            margin: 10px 0;
+            font-size: 15px;
+            line-height: 1.5;
+        }
+
+        .label-actions {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-top: 16px;
+            gap: 12px;
+            flex-wrap: wrap;
+        }
+
+        .label-actions select,
+        .label-actions input {
+            flex: 1;
+            min-width: 180px;
+            padding: 8px 10px;
+            font-size: 14px;
+            border-radius: 6px;
+            border: 1px solid #ccc;
+        }
+
+        .label-actions button {
+            background-color: #1976d2;
+            color: white;
+            border: none;
+            padding: 10px 20px;
+            border-radius: 8px;
+            cursor: pointer;
+            font-size: 14px;
+            transition: background-color 0.2s ease;
+            flex-shrink: 0;
+        }
+
+        .label-actions button:hover {
+            background-color: #125aa0;
+        }
+
+        form {
+            text-align: center;
+            margin: 30px auto;
+            max-width: 700px;
+            background-color: #ffffff;
+            padding: 24px;
+            border-radius: 16px;
+            box-shadow: 0 2px 8px rgba(0, 0, 0, 0.05);
+        }
+
+        form input {
+            padding: 10px;
+            margin: 8px;
+            border: 1px solid #ccc;
+            border-radius: 8px;
+            width: 220px;
+            font-size: 14px;
+        }
+
+        form input:focus {
+            border-color: #1976d2;
+            outline: none;
+            box-shadow: 0 0 0 2px rgba(25, 118, 210, 0.2);
+        }
+
+        form button {
+            background-color: #2e7d32;
+            color: white;
+            border: none;
+            padding: 10px 20px;
+            border-radius: 8px;
+            cursor: pointer;
+            font-size: 14px;
+            transition: background-color 0.2s ease;
+            margin-top: 12px;
+        }
+
+        form button:hover {
+            background-color: #1b5e20;
+        }
+
+        #formError {
+            color: red;
+            text-align: center;
+            margin-top: 12px;
+            font-weight: 500;
+            font-size: 14px;
+        }
+
+        .label-actions button.delete-btn {
+            background-color: #c62828;
+        }
+
+        .label-actions button.delete-btn:hover {
+            background-color: #a11313;
+        }
+    </style>
+</head>
+<body>
+
+<h2>Etiket Listesi</h2>
+
+<h3>Yeni Etiket Ekle</h3>
+<form id="labelForm">
+    <input type="text" id="name" placeholder="Etiket adı" required>
+    <input type="text" id="description" placeholder="Açıklama" required>
+    <input type="text" id="filePath" placeholder="Dosya yolu" required>
+    <button type="submit">Ekle</button>
+</form>
+<div id="formError"></div>
+
+<hr style="max-width: 800px; margin: 20px auto;">
+
+<div id="labelList"></div>
+
+<script>
+    const labelListDiv = document.getElementById('labelList');
+    let printerOptions = [];
+
+    function fetchPrinters() {
+        return fetch('/api/labels/printers', {
+            headers: {
+                'Authorization': 'Basic ' + btoa('admin:1234')
+            }
+        })
+        .then(res => res.json())
+        .then(data => {
+            printerOptions = data;
+        });
+    }
+
+    function fetchAndDisplayLabels() {
+        labelListDiv.innerHTML = "";
+        fetch('/api/labels/list', {
+            headers: {
+                'Authorization': 'Basic ' + btoa('admin:1234')
+            }
+        })
+        .then(res => res.json())
+        .then(data => {
+            data.forEach(label => {
+                const container = document.createElement('div');
+                container.className = 'label-card';
+
+                const labelName = document.createElement('p');
+                labelName.innerHTML = `<strong>${label.name}</strong>`;
+
+                const labelDesc = document.createElement('p');
+                labelDesc.innerHTML = `<em>Açıklama:</em> ${label.description}`;
+
+                const printerSelect = document.createElement('select');
+                printerSelect.id = `printerSelect-${label.id}`;
+                printerOptions.forEach(printer => {
+                    const option = document.createElement('option');
+                    option.value = printer;
+                    option.textContent = printer;
+                    printerSelect.appendChild(option);
+                });
+
+                // Yeni: Elle yazıcı ismi girme input'u
+                const customPrinterInput = document.createElement('input');
+                customPrinterInput.id = `customPrinter-${label.id}`;
+                customPrinterInput.placeholder = "Elle yazıcı adı girin";
+
+                const printButton = document.createElement('button');
+                printButton.textContent = 'Yazdır';
+                printButton.onclick = () => {
+                    const manualPrinter = document.getElementById(`customPrinter-${label.id}`).value.trim();
+                    const selectedPrinter = document.getElementById(`printerSelect-${label.id}`).value;
+                    const printerToUse = manualPrinter !== "" ? manualPrinter : selectedPrinter;
+                    printLabel(label.id, printerToUse);
+                };
+
+                const deleteButton = document.createElement('button');
+                deleteButton.textContent = 'Sil';
+                deleteButton.className = 'delete-btn';
+                deleteButton.onclick = () => {
+                    if (confirm("Bu etiketi silmek istediğinizden emin misiniz?")) {
+                        fetch(`/api/labels/${label.id}/delete`, {
+                            method: 'DELETE',
+                            headers: {
+                                'Authorization': 'Basic ' + btoa('admin:1234')
+                            }
+                        })
+                        .then(res => {
+                            if (!res.ok) {
+                                return res.json().then(err => { throw new Error(err.message); });
+                            }
+                            fetchAndDisplayLabels();
+                        })
+                        .catch(err => alert("Silme hatası: " + err.message));
+                    }
+                };
+
+                const actionsDiv = document.createElement('div');
+                actionsDiv.className = 'label-actions';
+                actionsDiv.appendChild(printerSelect);
+                actionsDiv.appendChild(customPrinterInput); // yeni input
+                actionsDiv.appendChild(printButton);
+                actionsDiv.appendChild(deleteButton);
+
+                container.appendChild(labelName);
+                container.appendChild(labelDesc);
+                container.appendChild(actionsDiv);
+                labelListDiv.appendChild(container);
+            });
+        });
+    }
+
+    function printLabel(id, printerName) {
+        fetch(`/api/labels/${id}/print?printerName=${encodeURIComponent(printerName)}`, {
+            method: 'POST',
+            headers: {
+                'Authorization': 'Basic ' + btoa('admin:1234')
+            }
+        })
+        .then(res => {
+            if (!res.ok) {
+                return res.json().then(err => { throw new Error(err.message); });
+            }
+            alert("Yazdırma komutu gönderildi.");
+        })
+        .catch(err => alert("Hata: " + err.message));
+    }
+
+    fetchPrinters().then(fetchAndDisplayLabels);
+
+    document.getElementById("labelForm").addEventListener("submit", function(e) {
+        e.preventDefault();
+
+        const name = document.getElementById("name").value.trim();
+        const description = document.getElementById("description").value.trim();
+        const filePath = document.getElementById("filePath").value.trim();
+
+        fetch('/api/labels/create', {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+                'Authorization': 'Basic ' + btoa('admin:1234')
+            },
+            body: JSON.stringify({ name, description, filePath })
+        })
+        .then(res => {
+            if (!res.ok) {
+                return res.json().then(err => {
+                    const messages = typeof err === "object" ? Object.values(err).join(", ") : err;
+                    throw new Error(messages);
+                });
+            }
+            return res.json();
+        })
+        .then(() => {
+            document.getElementById("formError").innerText = "";
+            document.getElementById("labelForm").reset();
+            fetchPrinters().then(fetchAndDisplayLabels);
+        })
+        .catch(err => {
+            document.getElementById("formError").innerText = "Hata: " + err.message;
+        });
+    });
+</script>
+</body>
+</html>
